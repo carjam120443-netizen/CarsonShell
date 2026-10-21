@@ -51,7 +51,7 @@ begin
     Exit;
 
   TestPath := AddBackslash(Directory) + '.carsonshell-write-test';
-  Handle := FileOpen(TestPath, fmCreate);
+  Handle := FileCreate(TestPath);
   if Handle < 0 then
     Exit;
 
