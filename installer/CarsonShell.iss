@@ -44,18 +44,14 @@ Filename: "{app}\{#MyAppExeName}"; Description: "Launch CarsonShell"; Flags: pos
 function TryWriteTestFile(const Directory: String): Boolean;
 var
   TestPath: String;
-  Handle: Integer;
 begin
   Result := False;
   if not ForceDirectories(Directory) then
     Exit;
 
   TestPath := AddBackslash(Directory) + '.carsonshell-write-test';
-  Handle := FileCreate(TestPath);
-  if Handle < 0 then
+  if not SaveStringToFile(TestPath, '', False) then
     Exit;
-
-  FileClose(Handle);
   DeleteFile(TestPath);
   Result := True;
 end;
