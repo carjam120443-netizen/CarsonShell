@@ -1,0 +1,14 @@
+# .NET build output
+**/bin/
+**/obj/
+.vs/
+*.user
+*.suo
+
+# IDEs
+.idea/
+.vscode/
+
+# Publish output
+publish/
+artifacts/
