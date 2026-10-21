@@ -14,7 +14,7 @@ DefaultDirName={localappdata}\Programs\CarsonShell
 DefaultGroupName=CarsonShell
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
-PrivilegesRequiredOverridesAllowed=dialog
+PrivilegesRequiredOverridesAllowed=commandline
 OutputDir=..\publish\installer
 OutputBaseFilename=CarsonShell-Setup-win-x64
 Compression=lzma2
@@ -22,7 +22,7 @@ SolidCompression=yes
 WizardStyle=modern
 ArchitecturesInstallIn64BitMode=x64
 UninstallDisplayIcon={app}\{#MyAppExeName}
-CloseApplications= no
+CloseApplications=no
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -39,3 +39,58 @@ Name: "{autodesktop}\CarsonShell"; Filename: "{app}\{#MyAppExeName}"; Tasks: des
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "Launch CarsonShell"; Flags: postinstall nowait skipifsilent
+
+[Code]
+var
+  ElevationRelaunchStarted: Boolean;
+
+function TryWriteTestFile(const Directory: String): Boolean;
+var
+  TestPath: String;
+  Handle: Integer;
+begin
+  Result := False;
+  if not ForceDirectories(Directory) then
+    Exit;
+
+  TestPath := AddBackslash(Directory) + '.carsonshell-write-test';
+  Handle := FileOpen(TestPath, fmCreate);
+  if Handle < 0 then
+    Exit;
+
+  FileClose(Handle);
+  DeleteFile(TestPath);
+  Result := True;
+end;
+
+function NextButtonClick(CurPageID: Integer): Boolean;
+var
+  ErrorCode: Integer;
+  Params: String;
+begin
+  Result := True;
+
+  if (CurPageID = wpSelectDir) and
+     (not TryWriteTestFile(WizardDirValue)) and
+     (not IsAdminInstallMode) and
+     (not ElevationRelaunchStarted) then
+  begin
+    Params := '/ALLUSERS /DIR="' + WizardDirValue + '" /ELEVATEDRELAUNCH';
+    if ShellExec('runas', ExpandConstant('{srcexe}'), Params, '',
+       SW_SHOWNORMAL, ewNoWait, ErrorCode) then
+    begin
+      ElevationRelaunchStarted := True;
+      Result := False;
+      WizardForm.Close;
+    end
+    else
+    begin
+      MsgBox(
+        'CarsonShell cannot write to the selected folder without administrator access.' +
+        #13#10 + #13#10 +
+        'Choose a folder you can write to, or approve the Windows administrator prompt.',
+        mbInformation, MB_OK);
+      Result := False;
+    end;
+  end;
+end;
