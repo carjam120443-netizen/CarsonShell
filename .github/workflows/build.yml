@@ -1,4 +1,4 @@
-name: Build CarsonShell
+name: Build and Package CarsonShell
 
 on:
   push:
@@ -11,14 +11,37 @@ permissions:
   contents: read
 
 jobs:
-  build:
+  build-and-package:
     runs-on: windows-latest
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
       - name: Set up .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
+
       - name: Build
         run: dotnet build CarsonShell.sln --configuration Release
+
+      - name: Publish self-contained Windows build
+        if: github.event_name != 'pull_request'
+        run: dotnet publish src/CarsonShell/CarsonShell.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true --output ./publish/win-x64
+
+      - name: Package Windows build
+        if: github.event_name != 'pull_request'
+        shell: pwsh
+        run: |
+          $packageName = "CarsonShell-win-x64-${{ github.sha }}"
+          Compress-Archive -Path "./publish/win-x64/*" -DestinationPath "./$packageName.zip" -CompressionLevel Optimal
+          "PACKAGE_NAME=$packageName" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Upload package
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PACKAGE_NAME }}
+          path: ${{ env.PACKAGE_NAME }}.zip
+          if-no-files-found: error
+          retention-days: 90
