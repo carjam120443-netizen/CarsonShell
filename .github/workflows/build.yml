@@ -1,4 +1,4 @@
-name: Build and Package CarsonShell
+name: Build, Package, and Release CarsonShell
 
 on:
   push:
@@ -8,10 +8,14 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
+
+concurrency:
+  group: carsonshell-release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  build-and-package:
+  build:
     runs-on: windows-latest
     steps:
       - name: Check out repository
@@ -22,25 +26,55 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
-      - name: Build
+      - name: Build and verify
         run: dotnet build CarsonShell.sln --configuration Release
 
-      - name: Publish self-contained Windows build
+      - name: Publish self-contained single-file Windows x64 executable
         if: github.event_name != 'pull_request'
-        run: dotnet publish src/CarsonShell/CarsonShell.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true --output ./publish/win-x64
+        run: dotnet publish src/CarsonShell/CarsonShell.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -p:DebugSymbols=false --output ./publish/win-x64
 
-      - name: Package Windows build
+      - name: Create portable ZIP
         if: github.event_name != 'pull_request'
         shell: pwsh
         run: |
-          $packageName = "CarsonShell-win-x64-${{ github.sha }}"
-          Compress-Archive -Path "./publish/win-x64/*" -DestinationPath "./$packageName.zip" -CompressionLevel Optimal
+          New-Item -ItemType Directory -Force -Path ./publish/packages | Out-Null
+          Copy-Item ./README.md ./publish/win-x64/README.txt
+          Compress-Archive -Path ./publish/win-x64/* -DestinationPath ./publish/packages/CarsonShell-Portable-win-x64.zip -CompressionLevel Optimal
 
-      - name: Upload package
+      - name: Install Inno Setup
+        if: github.event_name != 'pull_request'
+        shell: pwsh
+        run: choco install innosetup --yes --no-progress
+
+      - name: Build Windows setup installer
+        if: github.event_name != 'pull_request'
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { throw "Inno Setup compiler not found at $iscc" }
+          & $iscc /DAppVersion="0.1.0-build.${{ github.run_number }}" installer/CarsonShell.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Upload workflow artifacts
         if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
-          name: CarsonShell-win-x64-${{ github.sha }}
-          path: CarsonShell-win-x64-${{ github.sha }}.zip
+          name: CarsonShell-build-${{ github.run_number }}
+          path: |
+            publish/packages/CarsonShell-Portable-win-x64.zip
+            publish/installer/CarsonShell-Setup-win-x64.exe
           if-no-files-found: error
           retention-days: 90
+
+      - name: Publish GitHub Release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: CarsonShell build ${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          prerelease: true
+          generate_release_notes: true
+          files: |
+            publish/packages/CarsonShell-Portable-win-x64.zip
+            publish/installer/CarsonShell-Setup-win-x64.exe
