@@ -10,6 +10,25 @@ internal static class Program
     private static bool _running = true;
     private static string _currentDirectory = Environment.CurrentDirectory;
 
+    private static readonly Dictionary<string, (ConsoleColor Foreground, ConsoleColor Background, ConsoleColor Accent)> Themes =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["default"] = (ConsoleColor.Gray, ConsoleColor.Black, ConsoleColor.Cyan),
+            ["cyberpunk"] = (ConsoleColor.Magenta, ConsoleColor.Black, ConsoleColor.Yellow),
+            ["nord"] = (ConsoleColor.Cyan, ConsoleColor.DarkBlue, ConsoleColor.White),
+            ["dracula"] = (ConsoleColor.Magenta, ConsoleColor.Black, ConsoleColor.DarkCyan),
+            ["matrix"] = (ConsoleColor.Green, ConsoleColor.Black, ConsoleColor.DarkGreen),
+            ["amber"] = (ConsoleColor.Yellow, ConsoleColor.Black, ConsoleColor.DarkYellow),
+            ["ocean"] = (ConsoleColor.Cyan, ConsoleColor.DarkBlue, ConsoleColor.Blue),
+            ["sunset"] = (ConsoleColor.Yellow, ConsoleColor.DarkRed, ConsoleColor.Magenta),
+            ["forest"] = (ConsoleColor.Green, ConsoleColor.DarkGreen, ConsoleColor.Yellow),
+            ["synthwave"] = (ConsoleColor.Magenta, ConsoleColor.DarkBlue, ConsoleColor.Cyan),
+            ["ice"] = (ConsoleColor.White, ConsoleColor.DarkCyan, ConsoleColor.Cyan),
+            ["light"] = (ConsoleColor.Black, ConsoleColor.Gray, ConsoleColor.DarkBlue),
+            ["retro"] = (ConsoleColor.Yellow, ConsoleColor.DarkBlue, ConsoleColor.Cyan),
+            ["monochrome"] = (ConsoleColor.White, ConsoleColor.Black, ConsoleColor.Gray)
+        };
+
     private static int Main()
     {
         Console.OutputEncoding = Encoding.UTF8;
@@ -40,7 +59,7 @@ internal static class Program
     private static void DrawPrompt()
     {
         var previous = Console.ForegroundColor;
-        Console.ForegroundColor = _theme == "cyberpunk" ? ConsoleColor.Magenta : ConsoleColor.Cyan;
+        Console.ForegroundColor = Themes[_theme].Accent;
         Console.Write("CarsonShell");
         Console.ForegroundColor = ConsoleColor.DarkGray;
         Console.Write(" ");
@@ -137,7 +156,7 @@ internal static class Program
         Console.WriteLine("  alias                   List aliases");
         Console.WriteLine("  alias name = command    Define an in-session alias");
         Console.WriteLine("  unalias name            Remove an alias");
-        Console.WriteLine("  theme [name]            Show/set theme: default, cyberpunk, nord, dracula");
+        Console.WriteLine("  theme [name]            Show/set theme; run 'theme list' to see all themes");
         Console.WriteLine("  exec program [args...]  Run an executable with argument-safe process launching");
         Console.WriteLine("  ps command...           Run a command through Windows PowerShell");
         Console.WriteLine("  cmd command...          Run a command through CMD");
@@ -163,7 +182,7 @@ internal static class Program
         {
             bool isDirectory = Directory.Exists(entry);
             var old = Console.ForegroundColor;
-            Console.ForegroundColor = isDirectory ? ConsoleColor.Cyan : ConsoleColor.Gray;
+            Console.ForegroundColor = isDirectory ? Themes[_theme].Accent : Themes[_theme].Foreground;
             Console.WriteLine(isDirectory ? $"[DIR]  {Path.GetFileName(entry)}" : $"       {Path.GetFileName(entry)}");
             Console.ForegroundColor = old;
         }
@@ -201,11 +220,33 @@ internal static class Program
 
     private static void SetTheme(List<string> args)
     {
-        if (args.Count == 0) { Console.WriteLine($"Current theme: {_theme}"); return; }
-        if (args.Count != 1) { WriteError("Usage: theme [default|cyberpunk|nord|dracula]"); return; }
+        if (args.Count == 0)
+        {
+            Console.WriteLine($"Current theme: {_theme}");
+            return;
+        }
+
+        if (args.Count == 1 && args[0].Equals("list", StringComparison.OrdinalIgnoreCase))
+        {
+            Console.WriteLine("Available themes:");
+            foreach (var name in Themes.Keys.OrderBy(x => x, StringComparer.OrdinalIgnoreCase))
+                Console.WriteLine($"  {name}");
+            return;
+        }
+
+        if (args.Count != 1)
+        {
+            WriteError("Usage: theme [list|theme-name]");
+            return;
+        }
+
         var requested = args[0].ToLowerInvariant();
-        if (requested is not ("default" or "cyberpunk" or "nord" or "dracula"))
-        { WriteError("Unknown theme. Choose default, cyberpunk, nord, or dracula."); return; }
+        if (!Themes.ContainsKey(requested))
+        {
+            WriteError($"Unknown theme '{requested}'. Run 'theme list' to see available themes.");
+            return;
+        }
+
         _theme = requested;
         ApplyTheme(_theme);
         Console.WriteLine($"Theme set to {_theme}.");
@@ -213,15 +254,15 @@ internal static class Program
 
     private static void ApplyTheme(string theme)
     {
-        (ConsoleColor foreground, ConsoleColor background) = theme switch
+        var colors = Themes[theme];
+        try
         {
-            "cyberpunk" => (ConsoleColor.Magenta, ConsoleColor.Black),
-            "nord" => (ConsoleColor.Cyan, ConsoleColor.DarkBlue),
-            "dracula" => (ConsoleColor.Magenta, ConsoleColor.Black),
-            _ => (ConsoleColor.Gray, ConsoleColor.Black)
-        };
-        try { Console.ForegroundColor = foreground; Console.BackgroundColor = background; }
+            Console.ForegroundColor = colors.Foreground;
+            Console.BackgroundColor = colors.Background;
+            Console.Clear();
+        }
         catch (IOException) { /* Some redirected terminals do not support color changes. */ }
+        catch (PlatformNotSupportedException) { /* Some terminals do not support color changes. */ }
     }
 
     private static void RunExecutable(List<string> args)
