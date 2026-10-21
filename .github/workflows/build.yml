@@ -35,13 +35,12 @@ jobs:
         run: |
           $packageName = "CarsonShell-win-x64-${{ github.sha }}"
           Compress-Archive -Path "./publish/win-x64/*" -DestinationPath "./$packageName.zip" -CompressionLevel Optimal
-          "PACKAGE_NAME=$packageName" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Upload package
         if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.PACKAGE_NAME }}
-          path: ${{ env.PACKAGE_NAME }}.zip
+          name: CarsonShell-win-x64-${{ github.sha }}
+          path: CarsonShell-win-x64-${{ github.sha }}.zip
           if-no-files-found: error
           retention-days: 90
