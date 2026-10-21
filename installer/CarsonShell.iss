@@ -41,9 +41,6 @@ Name: "{autodesktop}\CarsonShell"; Filename: "{app}\{#MyAppExeName}"; Tasks: des
 Filename: "{app}\{#MyAppExeName}"; Description: "Launch CarsonShell"; Flags: postinstall nowait skipifsilent
 
 [Code]
-var
-  ElevationRelaunchStarted: Boolean;
-
 function TryWriteTestFile(const Directory: String): Boolean;
 var
   TestPath: String;
@@ -72,24 +69,18 @@ begin
 
   if (CurPageID = wpSelectDir) and
      (not TryWriteTestFile(WizardDirValue)) and
-     (not IsAdminInstallMode) and
-     (not ElevationRelaunchStarted) then
+     (not IsAdminInstallMode) then
   begin
-    Params := '/ALLUSERS /DIR="' + WizardDirValue + '" /ELEVATEDRELAUNCH';
+    Params := '/ALLUSERS /DIR="' + WizardDirValue + '"';
     if ShellExec('runas', ExpandConstant('{srcexe}'), Params, '',
        SW_SHOWNORMAL, ewNoWait, ErrorCode) then
     begin
-      ElevationRelaunchStarted := True;
       Result := False;
       WizardForm.Close;
     end
     else
     begin
-      MsgBox(
-        'CarsonShell cannot write to the selected folder without administrator access.' +
-        #13#10 + #13#10 +
-        'Choose a folder you can write to, or approve the Windows administrator prompt.',
-        mbInformation, MB_OK);
+      MsgBox('CarsonShell cannot write to the selected folder without administrator access.' + #13#10 + #13#10 + 'Choose a folder you can write to, or approve the Windows administrator prompt.', mbInformation, MB_OK);
       Result := False;
     end;
   end;
