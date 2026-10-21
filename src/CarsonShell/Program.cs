@@ -89,24 +89,10 @@ internal static class Program
         var tokens = new List<string>();
         var current = new StringBuilder();
         char quote = '\0';
-        bool escaped = false;
         bool tokenStarted = false;
 
         foreach (char c in input)
         {
-            if (escaped)
-            {
-                current.Append(c);
-                escaped = false;
-                tokenStarted = true;
-                continue;
-            }
-            if (c == '\\\\' && quote != '\'')
-            {
-                escaped = true;
-                tokenStarted = true;
-                continue;
-            }
             if (quote != '\0')
             {
                 if (c == quote) quote = '\0';
@@ -134,7 +120,6 @@ internal static class Program
             tokenStarted = true;
         }
 
-        if (escaped) current.Append('\\\\');
         if (quote != '\0') throw new FormatException("Unclosed quote in command.");
         if (tokenStarted) tokens.Add(current.ToString());
         return tokens;
