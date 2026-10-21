@@ -21,7 +21,7 @@ A modern, customizable Windows shell built in C# and .NET. CarsonShell has its o
 ## Build and run
 
 ```powershell
-dotnet build
+dotnet build CarsonShell.sln
 dotnet run --project src/CarsonShell
 ```
 
